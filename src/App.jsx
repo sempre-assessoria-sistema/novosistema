@@ -169,7 +169,7 @@ export default function App() {
 
     // Envia para o Supabase
     await salvarNoSupabase(clientesImportados, lancamentosImportados);
-
+    
     // Atualiza a tela
     setClientes(clientesImportados);
     setLancamentos(lancamentosImportados);
