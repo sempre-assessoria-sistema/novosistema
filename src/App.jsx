@@ -60,6 +60,7 @@ export default function App() {
   const [clientes, setClientes] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [mensagem, setMensagem] = useState("Carregando banco...");
+  const [clienteExpandido, setClienteExpandido] = useState(null); // Estado para controlar a lista suspensa
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export default function App() {
       .select("*");
 
     if (erroClientes || erroLanc) {
-      setMensagem("Erro ao carregar banco.");
+      setMensagem("Erro ao carregar banco. Verifique o Supabase.");
       return;
     }
 
@@ -281,7 +282,10 @@ export default function App() {
         <h1>Dashboard</h1>
         <p>Sempre Assessoria Contábil · {mensagem}</p>
 
-        <button onClick={() => fileRef.current.click()}>
+        <button 
+          onClick={() => fileRef.current.click()}
+          style={{ padding: "10px 20px", background: "#2563eb", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
+        >
           Importar Excel
         </button>
 
@@ -309,23 +313,92 @@ export default function App() {
 
         <h2 style={{ marginTop: 40 }}>Tabela Geral</h2>
 
-        <table width="100%" cellPadding="10" style={{ background: "#fff", borderRadius: 10 }}>
+        <table width="100%" cellPadding="10" style={{ background: "#fff", borderRadius: 10, borderCollapse: "collapse", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
           <thead>
-            <tr>
+            <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
               <th align="left">Cliente</th>
               <th align="left">Regime</th>
-              <th align="right">Faturamento</th>
+              <th align="right">Faturamento Anual</th>
               <th align="left">Status</th>
             </tr>
           </thead>
           <tbody>
             {clientes.map(c => (
-              <tr key={c.nome}>
-                <td>{c.nome}</td>
-                <td>{c.regime}</td>
-                <td align="right">{moeda(c.faturamento)}</td>
-                <td>{c.status}</td>
-              </tr>
+              <React.Fragment key={c.nome}>
+                <tr 
+                  onClick={() => setClienteExpandido(clienteExpandido === c.nome ? null : c.nome)}
+                  style={{ 
+                    cursor: "pointer", 
+                    borderBottom: "1px solid #e2e8f0",
+                    background: clienteExpandido === c.nome ? "#f1f5f9" : "transparent",
+                    transition: "background 0.2s"
+                  }}
+                >
+                  <td>
+                    <strong style={{ color: "#2563eb", marginRight: "10px", display: "inline-block", width: "15px" }}>
+                      {clienteExpandido === c.nome ? "▼" : "▶"}
+                    </strong> 
+                    {c.nome}
+                  </td>
+                  <td>{c.regime}</td>
+                  <td align="right"><strong>{moeda(c.faturamento)}</strong></td>
+                  <td>
+                    <span style={{ 
+                      background: c.status.includes("Pendente") ? "#fef3c7" : "#dcfce7", 
+                      color: c.status.includes("Pendente") ? "#92400e" : "#166534",
+                      padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold"
+                    }}>
+                      {c.status}
+                    </span>
+                  </td>
+                </tr>
+
+                {clienteExpandido === c.nome && (
+                  <tr>
+                    <td colSpan="4" style={{ padding: 0, borderBottom: "2px solid #cbd5e1" }}>
+                      <div style={{ background: "#f8fafc", padding: "20px 40px", borderLeft: "4px solid #2563eb" }}>
+                        <h4 style={{ margin: "0 0 15px 0", color: "#334155" }}>Controle Mensal de Faturamento</h4>
+                        
+                        <table width="100%" cellPadding="8" style={{ fontSize: "14px", borderCollapse: "collapse", background: "#fff", borderRadius: "8px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+                          <thead>
+                            <tr style={{ background: "#f1f5f9", color: "#64748b", borderBottom: "1px solid #cbd5e1" }}>
+                              <th align="left">Mês</th>
+                              <th align="right">Faturamento</th>
+                              <th align="right">DAS / Tributos</th>
+                              <th align="left">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {lancamentos
+                              .filter(l => l.cliente === c.nome)
+                              .map(l => (
+                                <tr key={l.mes} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                                  <td><strong>{l.mes}</strong></td>
+                                  <td align="right">{moeda(l.faturamento)}</td>
+                                  <td align="right">{moeda(l.das)}</td>
+                                  <td>
+                                    <span style={{ 
+                                      background: l.status.includes("Pendente") ? "#fef3c7" : "#dcfce7", 
+                                      color: l.status.includes("Pendente") ? "#92400e" : "#166534",
+                                      padding: "4px 8px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold"
+                                    }}>
+                                      {l.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                            ))}
+                            {lancamentos.filter(l => l.cliente === c.nome).length === 0 && (
+                              <tr>
+                                <td colSpan="4" align="center" style={{ padding: "20px", color: "#94a3b8" }}>Nenhum lançamento encontrado para este cliente.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
