@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 
+// Configuração do Supabase usando as chaves do seu arquivo .env
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -12,6 +13,7 @@ const MESES = [
   "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
 ];
 
+// Funções de Ajuda
 function moeda(valor) {
   return Number(valor || 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -34,12 +36,8 @@ function normalizar(texto) {
 
 function descobrirRegime(sheetName) {
   const nome = normalizar(sheetName);
-
   const mei = ["ABRAAO", "JOSUE", "LINDINALVA", "OSMAR", "SIMONE", "TELHADO GAMA"];
-  const lucro = [
-    "EVERTON", "GROW YOUR", "JCARLOS", "ROSILENE",
-    "SOM EXPRESS", "TIME ENG", "TIME OBRAS", "VERO"
-  ];
+  const lucro = ["EVERTON", "GROW YOUR", "JCARLOS", "ROSILENE", "SOM EXPRESS", "TIME ENG", "TIME OBRAS", "VERO"];
 
   if (mei.includes(nome)) return "MEI";
   if (lucro.includes(nome)) return "Lucro Presumido";
@@ -60,9 +58,9 @@ export default function App() {
   const [clientes, setClientes] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [mensagem, setMensagem] = useState("Carregando banco...");
-  const [clienteExpandido, setClienteExpandido] = useState(null); // Estado para controlar a lista suspensa
   const fileRef = useRef(null);
 
+  // Busca os dados no Supabase toda vez que a página carrega (ou dá F5)
   useEffect(() => {
     carregarBanco();
   }, []);
@@ -78,7 +76,7 @@ export default function App() {
       .select("*");
 
     if (erroClientes || erroLanc) {
-      setMensagem("Erro ao carregar banco. Verifique o Supabase.");
+      setMensagem("Erro de conexão. Verifique seu arquivo .env");
       return;
     }
 
@@ -86,29 +84,25 @@ export default function App() {
     setLancamentos(lancamentosDb || []);
 
     if ((clientesDb || []).length === 0) {
-      setMensagem("Banco conectado, mas ainda sem clientes importados");
+      setMensagem("Banco conectado, aguardando primeira importação.");
     } else {
-      setMensagem(`${clientesDb.length} clientes carregados do Supabase`);
+      setMensagem(`${clientesDb.length} clientes carregados da nuvem.`);
     }
   }
 
-  async function salvarClientes(clientesImportados) {
-    const { error } = await supabase
+  async function salvarNoSupabase(clientesLista, lancamentosLista) {
+    // Salva Clientes
+    const { error: err1 } = await supabase
       .from("clientes")
-      .upsert(clientesImportados, { onConflict: "nome" });
+      .upsert(clientesLista, { onConflict: "nome" });
 
-    if (error) {
-      alert("Erro ao salvar clientes: " + error.message);
-    }
-  }
-
-  async function salvarLancamentos(lancamentosImportados) {
-    const { error } = await supabase
+    // Salva Lançamentos
+    const { error: err2 } = await supabase
       .from("lancamentos")
-      .upsert(lancamentosImportados, { onConflict: "cliente,mes" });
+      .upsert(lancamentosLista, { onConflict: "cliente,mes" });
 
-    if (error) {
-      alert("Erro ao salvar lançamentos: " + error.message);
+    if (err1 || err2) {
+      alert("Erro ao gravar no banco: " + (err1?.message || err2?.message));
     }
   }
 
@@ -116,7 +110,7 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setMensagem("Importando planilha...");
+    setMensagem("Processando planilha...");
 
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer);
@@ -126,56 +120,30 @@ export default function App() {
 
     workbook.SheetNames.forEach(sheetName => {
       const nomeAba = normalizar(sheetName);
-
-      if (
-        nomeAba.includes("PAINEL") ||
-        nomeAba.includes("DASHBOARD") ||
-        nomeAba.includes("GERAL") ||
-        nomeAba.includes("TABELA")
-      ) {
-        return;
-      }
+      if (["PAINEL", "DASHBOARD", "GERAL", "TABELA"].some(termo => nomeAba.includes(termo))) return;
 
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-
       if (!rows.length) return;
 
       const nomeCliente = sheetName.trim();
       const regime = descobrirRegime(nomeCliente);
-
       let faturamentoTotal = 0;
       let statusCliente = "Pendente";
 
       rows.forEach(row => {
-        const mesRaw =
-          acharValor(row, ["MÊS", "MES", "Mês", "Mes"]) ||
-          acharValor(row, ["COMPETÊNCIA", "COMPETENCIA"]);
-
+        const mesRaw = acharValor(row, ["MÊS", "MES", "Mês", "Mes", "COMPETÊNCIA", "COMPETENCIA"]);
         const mes = normalizar(mesRaw);
-
         if (!MESES.includes(mes)) return;
 
         const vendas = numero(acharValor(row, ["VENDAS", "VENDA"]));
         const servicos = numero(acharValor(row, ["SERVIÇOS", "SERVICOS", "SERVICO"]));
-        const faturamento =
-          numero(acharValor(row, ["FATURAMENTO", "TOTAL", "RECEITA"])) ||
-          vendas + servicos;
-
+        const faturamento = numero(acharValor(row, ["FATURAMENTO", "TOTAL", "RECEITA"])) || (vendas + servicos);
         const das = numero(acharValor(row, ["DAS", "TRIBUTOS", "IMPOSTO"]));
-        const inss = numero(acharValor(row, ["INSS"]));
-        const fgts = numero(acharValor(row, ["FGTS"]));
-        const folha = numero(acharValor(row, ["FOLHA LÍQUIDA", "FOLHA LIQUIDA"]));
-        const proLabore = numero(acharValor(row, ["PRO LABORE", "PRÓ-LABORE"]));
-
-        const status =
-          acharValor(row, ["STATUS", "SITUAÇÃO", "SITUACAO"]) || "Pendente";
+        const status = acharValor(row, ["STATUS", "SITUAÇÃO", "SITUACAO"]) || "Pendente";
 
         faturamentoTotal += faturamento;
-
-        if (normalizar(status).includes("CONCL")) {
-          statusCliente = "Concluído";
-        }
+        if (normalizar(status).includes("CONCL")) statusCliente = "Concluído";
 
         lancamentosImportados.push({
           cliente: nomeCliente,
@@ -185,10 +153,6 @@ export default function App() {
           servicos,
           faturamento,
           das,
-          inss,
-          fgts,
-          folha_liquida: folha,
-          pro_labore: proLabore,
           status,
           updated_at: new Date().toISOString()
         });
@@ -203,31 +167,27 @@ export default function App() {
       });
     });
 
-    if (!clientesImportados.length) {
-      setMensagem("Nenhum cliente encontrado na planilha.");
-      return;
-    }
+    // Envia para o Supabase
+    await salvarNoSupabase(clientesImportados, lancamentosImportados);
 
-    await salvarClientes(clientesImportados);
-    await salvarLancamentos(lancamentosImportados);
-
+    // Atualiza a tela
     setClientes(clientesImportados);
     setLancamentos(lancamentosImportados);
-
-    setMensagem(
-      `${clientesImportados.length} clientes e ${lancamentosImportados.length} lançamentos salvos no Supabase`
-    );
-
+    setMensagem("Importação concluída e salva com sucesso!");
     e.target.value = "";
   }
 
+  // Cálculos do Dashboard com Proteção contra banco vazio
   const totais = useMemo(() => {
-    const faturamento = lancamentos.reduce((s, l) => s + Number(l.faturamento || 0), 0);
-    const tributos = lancamentos.reduce((s, l) => s + Number(l.das || 0), 0);
-    const pendentes = lancamentos.filter(l => normalizar(l.status).includes("PEND")).length;
+    const listLanc = lancamentos || [];
+    const listCli = clientes || [];
+
+    const faturamento = listLanc.reduce((s, l) => s + Number(l.faturamento || 0), 0);
+    const tributos = listLanc.reduce((s, l) => s + Number(l.das || 0), 0);
+    const pendentes = listLanc.filter(l => normalizar(l.status).includes("PEND")).length;
 
     const porRegime = {};
-    clientes.forEach(c => {
+    listCli.forEach(c => {
       porRegime[c.regime] = (porRegime[c.regime] || 0) + 1;
     });
 
@@ -236,169 +196,85 @@ export default function App() {
 
   if (!logado) {
     return (
-      <div style={{ padding: 40 }}>
+      <div style={{ padding: 40, textAlign: "center" }}>
         <h1>Sempre Assessoria Contábil</h1>
-        <p>Sistema de Gestão 2026</p>
-        <input placeholder="E-mail" defaultValue="contato@sempreassessoriacontabil.com.br" />
-        <br /><br />
-        <input placeholder="Senha" type="password" />
-        <br /><br />
-        <button onClick={() => setLogado(true)}>Entrar</button>
+        <button onClick={() => setLogado(true)} style={{ padding: "10px 20px", cursor: "pointer" }}>
+          Entrar no Sistema
+        </button>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "Arial" }}>
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".xlsx,.xls"
-        style={{ display: "none" }}
-        onChange={importarExcel}
-      />
+    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "sans-serif" }}>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={importarExcel} />
 
       <aside style={{ width: 260, background: "#22316C", color: "#fff", padding: 20 }}>
         <h2>Sempre</h2>
-        <p>Assessoria Contábil</p>
-
-        <h4>Clientes por Regime</h4>
-
+        <p>Gestão Contábil 2026</p>
+        <hr />
         {["MEI", "Simples Nacional", "Lucro Presumido"].map(regime => (
           <div key={regime} style={{ marginBottom: 20 }}>
             <strong>{regime}</strong>
-            <ul>
-              {clientes
-                .filter(c => c.regime === regime)
-                .map(c => (
-                  <li key={c.nome}>{c.nome}</li>
-                ))}
+            <ul style={{ fontSize: "12px", opacity: 0.8 }}>
+              {(clientes || []).filter(c => c.regime === regime).map(c => (
+                <li key={c.nome}>{c.nome}</li>
+              ))}
             </ul>
           </div>
         ))}
       </aside>
 
       <main style={{ flex: 1, padding: 30, background: "#f4f6f9" }}>
-        <h1>Dashboard</h1>
-        <p>Sempre Assessoria Contábil · {mensagem}</p>
-
-        <button 
-          onClick={() => fileRef.current.click()}
-          style={{ padding: "10px 20px", background: "#2563eb", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
-        >
-          Importar Excel
-        </button>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <h1>Dashboard</h1>
+          <button onClick={() => fileRef.current.click()} style={{ padding: "10px 20px", background: "#4e73df", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>
+            Importar Excel
+          </button>
+        </div>
+        <p style={{ color: "#666" }}>{mensagem}</p>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginTop: 25 }}>
           <div style={card}>
-            <small>Total de Clientes</small>
-            <h2>{clientes.length}</h2>
+            <small>Empresas</small>
+            <h2>{(clientes || []).length}</h2>
           </div>
-
           <div style={card}>
             <small>Faturamento Total</small>
             <h2>{moeda(totais.faturamento)}</h2>
           </div>
-
           <div style={card}>
-            <small>DAS / Tributos</small>
+            <small>Impostos (DAS)</small>
             <h2>{moeda(totais.tributos)}</h2>
           </div>
-
           <div style={card}>
             <small>Pendências</small>
             <h2>{totais.pendentes}</h2>
           </div>
         </div>
 
-        <h2 style={{ marginTop: 40 }}>Tabela Geral</h2>
-
-        <table width="100%" cellPadding="10" style={{ background: "#fff", borderRadius: 10, borderCollapse: "collapse", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
+        <h2 style={{ marginTop: 40 }}>Lista de Clientes</h2>
+        <table width="100%" cellPadding="12" style={{ background: "#fff", borderRadius: 10, borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ borderBottom: "2px solid #e2e8f0", background: "#f8fafc" }}>
+            <tr style={{ borderBottom: "1px solid #eee" }}>
               <th align="left">Cliente</th>
               <th align="left">Regime</th>
-              <th align="right">Faturamento Anual</th>
-              <th align="left">Status</th>
+              <th align="right">Faturamento</th>
+              <th align="center">Status</th>
             </tr>
           </thead>
           <tbody>
-            {clientes.map(c => (
-              <React.Fragment key={c.nome}>
-                <tr 
-                  onClick={() => setClienteExpandido(clienteExpandido === c.nome ? null : c.nome)}
-                  style={{ 
-                    cursor: "pointer", 
-                    borderBottom: "1px solid #e2e8f0",
-                    background: clienteExpandido === c.nome ? "#f1f5f9" : "transparent",
-                    transition: "background 0.2s"
-                  }}
-                >
-                  <td>
-                    <strong style={{ color: "#2563eb", marginRight: "10px", display: "inline-block", width: "15px" }}>
-                      {clienteExpandido === c.nome ? "▼" : "▶"}
-                    </strong> 
-                    {c.nome}
-                  </td>
-                  <td>{c.regime}</td>
-                  <td align="right"><strong>{moeda(c.faturamento)}</strong></td>
-                  <td>
-                    <span style={{ 
-                      background: c.status.includes("Pendente") ? "#fef3c7" : "#dcfce7", 
-                      color: c.status.includes("Pendente") ? "#92400e" : "#166534",
-                      padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold"
-                    }}>
-                      {c.status}
-                    </span>
-                  </td>
-                </tr>
-
-                {clienteExpandido === c.nome && (
-                  <tr>
-                    <td colSpan="4" style={{ padding: 0, borderBottom: "2px solid #cbd5e1" }}>
-                      <div style={{ background: "#f8fafc", padding: "20px 40px", borderLeft: "4px solid #2563eb" }}>
-                        <h4 style={{ margin: "0 0 15px 0", color: "#334155" }}>Controle Mensal de Faturamento</h4>
-                        
-                        <table width="100%" cellPadding="8" style={{ fontSize: "14px", borderCollapse: "collapse", background: "#fff", borderRadius: "8px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                          <thead>
-                            <tr style={{ background: "#f1f5f9", color: "#64748b", borderBottom: "1px solid #cbd5e1" }}>
-                              <th align="left">Mês</th>
-                              <th align="right">Faturamento</th>
-                              <th align="right">DAS / Tributos</th>
-                              <th align="left">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {lancamentos
-                              .filter(l => l.cliente === c.nome)
-                              .map(l => (
-                                <tr key={l.mes} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                                  <td><strong>{l.mes}</strong></td>
-                                  <td align="right">{moeda(l.faturamento)}</td>
-                                  <td align="right">{moeda(l.das)}</td>
-                                  <td>
-                                    <span style={{ 
-                                      background: l.status.includes("Pendente") ? "#fef3c7" : "#dcfce7", 
-                                      color: l.status.includes("Pendente") ? "#92400e" : "#166534",
-                                      padding: "4px 8px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold"
-                                    }}>
-                                      {l.status}
-                                    </span>
-                                  </td>
-                                </tr>
-                            ))}
-                            {lancamentos.filter(l => l.cliente === c.nome).length === 0 && (
-                              <tr>
-                                <td colSpan="4" align="center" style={{ padding: "20px", color: "#94a3b8" }}>Nenhum lançamento encontrado para este cliente.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
+            {(clientes || []).map(c => (
+              <tr key={c.nome} style={{ borderBottom: "1px solid #f8f8f8" }}>
+                <td>{c.nome}</td>
+                <td>{c.regime}</td>
+                <td align="right">{moeda(c.faturamento)}</td>
+                <td align="center">
+                  <span style={{ padding: "4px 8px", borderRadius: 4, background: c.status === "Concluído" ? "#e1f7ec" : "#ffe8e8", color: c.status === "Concluído" ? "#008a4e" : "#d92d20" }}>
+                    {c.status}
+                  </span>
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
@@ -411,5 +287,5 @@ const card = {
   background: "#fff",
   padding: 20,
   borderRadius: 12,
-  boxShadow: "0 8px 18px rgba(0,0,0,.06)"
+  boxShadow: "0 4px 6px rgba(0,0,0,.05)"
 };
