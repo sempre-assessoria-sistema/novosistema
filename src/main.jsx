@@ -135,24 +135,46 @@ function App(){
     if(!supabase){ setImportInfo('Supabase não configurado.'); return; }
     setLoadingDb(true);
     
-    // Lista de nomes de clientes para apagarmos os antigos
     const clientNames = parsed.map(c => c.nome);
     
-    // Preparando os dados (Removido o updated_at dos lançamentos para evitar Erro 400)
-    const clientPayload = parsed.map(c=>({ nome:c.nome, regime:c.regime, faturamento:c.faturamento, das:c.das, status:c.status, updated_at:new Date().toISOString() }));
-    const movePayload = parsed.flatMap(c=>c.meses.map(m=>({ cliente:c.nome, mes:m.mes, regime:c.regime, vendas:m.vendas, servicos:m.servicos, faturamento:m.faturamento, das:m.das, inss:m.inss, fgts:m.fgts, folha_liquida:m.folha_liquida, pro_labore:m.pro_labore, status:m.status })));
+    // MUDANÇA CRÍTICA AQUI: Enviando apenas as colunas que sabemos que existem na tabela clientes
+    const clientPayload = parsed.map(c=>({ 
+      nome: c.nome, 
+      regime: c.regime, 
+      faturamento: c.faturamento, 
+      status: c.status 
+    }));
     
-    // 1. Atualiza os dados principais dos Clientes
+    // Preparando os lançamentos completos
+    const movePayload = parsed.flatMap(c=>c.meses.map(m=>({ 
+      cliente: c.nome, 
+      mes: m.mes, 
+      regime: c.regime,
+      vendas: m.vendas,
+      servicos: m.servicos,
+      faturamento: m.faturamento, 
+      das: m.das,
+      inss: m.inss,
+      fgts: m.fgts,
+      folha_liquida: m.folha_liquida,
+      pro_labore: m.pro_labore,
+      status: m.status 
+    })));
+    
+    // 1. Atualiza Clientes (agora sem dar o erro 400)
     const { error:e1 } = await supabase.from('clientes').upsert(clientPayload, { onConflict:'nome' });
     
-    // 2. A MÁGICA: Apaga os lançamentos velhos para não dar conflito (Erro 409)
+    // 2. Apaga Lançamentos Antigos e Insere os Novos
     await supabase.from('lancamentos').delete().in('cliente', clientNames);
-    
-    // 3. Insere os lançamentos novinhos em folha
     const { error:e2 } = await supabase.from('lancamentos').insert(movePayload); 
 
-    if(e1 || e2) setImportInfo('Erro ao gravar: ' + (e1?.message || e2?.message));
-    else setImportInfo(`${parsed.length} clientes salvos com sucesso!`);
+    if(e1 || e2) {
+      console.error("Erro E1:", e1);
+      console.error("Erro E2:", e2);
+      setImportInfo('Erro ao gravar: ' + (e1?.message || e2?.message));
+    } else {
+      setImportInfo(`${parsed.length} clientes salvos com sucesso!`);
+    }
     
     setLoadingDb(false);
     loadFromSupabase();
