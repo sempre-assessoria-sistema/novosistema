@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import { Home, Users, DollarSign, FileText, Settings, LogOut, Search, Plus, UploadCloud, ChevronDown, Lock, Calculator, TrendingUp, AlertCircle, FileDigit, Save, Info, Table, Building2, Key } from 'lucide-react';
+import './style.css'; // <-- Adicionado de volta para garantir estabilidade
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -65,7 +66,7 @@ function App() {
     const { error } = await supabase.from('clientes').upsert([novoCliente], { onConflict: 'nome' });
     setLoading(false);
     
-    if (error) alert("Erro ao salvar! Verifique as colunas do Supabase: " + error.message);
+    if (error) alert("Erro ao salvar! Rode o SQL que te mandei antes no Supabase. Erro: " + error.message);
     else { setShowNewClient(false); loadData(); }
   }
 
@@ -87,8 +88,6 @@ function App() {
 
   return (
     <div className="flex h-screen bg-[#f8fafc] text-slate-900 overflow-hidden font-sans">
-      
-      {/* SIDEBAR */}
       <aside className="w-72 bg-[#1e293b] text-white flex flex-col shrink-0 overflow-y-auto border-r border-slate-800">
         <div className="p-8 border-b border-slate-800/50">
           <div className="flex items-center gap-3 mb-1">
@@ -114,7 +113,6 @@ function App() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* HEADER */}
         <header className="bg-white h-20 border-b border-slate-200 flex items-center justify-between px-10 shrink-0 shadow-sm z-10">
           <div>
             <h1 className="text-xl font-bold text-slate-800 capitalize">{page === 'Detalhes Cliente' ? selectedClient?.nome : page}</h1>
@@ -144,6 +142,10 @@ function App() {
             </div>
           )}
 
+          {page === 'Painel MEI' && <RegimeView regime="MEI" limit={81000} clients={clients.filter(c=>c.regime==='MEI')} lancamentos={lancamentos} />}
+          {page === 'Simples Nacional' && <RegimeView regime="Simples Nacional" limit={3600000} clients={clients.filter(c=>c.regime==='Simples Nacional')} lancamentos={lancamentos} />}
+          {page === 'Lucro Presumido' && <RegimeView regime="Lucro Presumido" limit={78000000} clients={clients.filter(c=>c.regime==='Lucro Presumido')} lancamentos={lancamentos} />}
+
           {page === 'Detalhes Cliente' && selectedClient && (
             <ClientDetailsTabs client={selectedClient} lancamentos={lancamentos} supabase={supabase} onRefresh={loadData} />
           )}
@@ -166,9 +168,8 @@ function App() {
                     <div className="col-span-12 md:col-span-5"><label className="block text-[11px] font-bold text-slate-500 mb-1">Nome *</label><input name="nome" required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
                     <div className="col-span-12 md:col-span-7"><label className="block text-[11px] font-bold text-slate-500 mb-1">Razão Social</label><input name="razao_social" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
                     
-                    <div className="col-span-12 md:col-span-4"><label className="block text-[11px] font-bold text-slate-500 mb-1">Valor Honorários (Mensalidade) R$</label><input name="valor_honorarios" type="number" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
+                    <div className="col-span-12 md:col-span-4"><label className="block text-[11px] font-bold text-slate-500 mb-1">Valor Honorários R$</label><input name="valor_honorarios" type="number" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
                     
-                    {/* BOTÃO DO CERTIFICADO EXATO COMO SOLICITADO */}
                     <div className="col-span-12 md:col-span-8 flex items-end">
                       <input type="file" ref={certRef} accept=".pfx,.p12" className="hidden" onChange={() => alert('Certificado carregado!')} />
                       <button type="button" onClick={() => certRef.current?.click()} className="h-[42px] px-6 w-full rounded-lg font-bold text-sm bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 flex items-center justify-center gap-2 transition-all">
@@ -177,8 +178,8 @@ function App() {
                     </div>
 
                     <div className="col-span-12 md:col-span-3"><label className="block text-[11px] font-bold text-slate-500 mb-1">CNPJ</label><input name="cnpj" placeholder="00.000.000/0001-00" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
-                    <div className="col-span-12 md:col-span-3"><label className="block text-[11px] font-bold text-slate-500 mb-1">Inscrição Estadual</label><input name="inscricao_estadual" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
-                    <div className="col-span-12 md:col-span-3"><label className="block text-[11px] font-bold text-slate-500 mb-1">Inscrição Municipal</label><input name="inscricao_municipal" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
+                    <div className="col-span-12 md:col-span-3"><label className="block text-[11px] font-bold text-slate-500 mb-1">Insc. Estadual</label><input name="inscricao_estadual" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
+                    <div className="col-span-12 md:col-span-3"><label className="block text-[11px] font-bold text-slate-500 mb-1">Insc. Municipal</label><input name="inscricao_municipal" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
                     <div className="col-span-12 md:col-span-3"><label className="block text-[11px] font-bold text-slate-500 mb-1">CNAE Principal</label><input name="cnae" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none focus:border-orange-500" /></div>
 
                     <div className="col-span-12 md:col-span-4"><label className="block text-[11px] font-bold text-slate-500 mb-1">Regime *</label>
@@ -218,7 +219,7 @@ function App() {
   );
 }
 
-// --- FICHA DO CLIENTE E TABELAS COM GRADE ---
+// --- FICHA DO CLIENTE E TABELAS COM GRADE ESTILO EXCEL ---
 function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
   const [tab, setTab] = useState('faturamento');
   const [grid, setGrid] = useState([]);
@@ -270,10 +271,22 @@ function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
       <div className="p-6 flex-1">
         {tab === 'cadastro' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* ... Dados do cadastro omitidos no visual para focar na tabela, mas as variáveis estão lá ... */}
             <div className="space-y-4">
-              <h3 className="font-bold border-b pb-2">Informações da Empresa</h3>
-              <p className="text-sm"><b>CNPJ:</b> {client.cnpj} | <b>Regime:</b> {client.regime}</p>
+              <h3 className="font-bold border-b pb-2"><Building2 size={16} className="inline mr-2 text-orange-500"/> Informações da Empresa</h3>
+              <DataField label="CNPJ" value={client.cnpj || '---'} />
+              <DataField label="Regime Tributário" value={client.regime} />
+              <DataField label="Inscrição Estadual" value={client.inscricao_estadual || '---'} />
+              <DataField label="Inscrição Municipal" value={client.inscricao_municipal || '---'} />
+              <DataField label="CNAE" value={client.cnae || '---'} />
+              <DataField label="CPF do Responsável" value={client.responsavel_cpf || '---'} />
+              <DataField label="Honorários" value={br(client.valor_honorarios)} />
+            </div>
+            <div className="space-y-4">
+               <h3 className="font-bold border-b pb-2"><Key size={16} className="inline mr-2 text-blue-500"/> Acessos</h3>
+               <DataField label="Senha GOV.br" value={client.senha_gov || '---'} isPassword />
+               <DataField label="Senha Prefeitura" value={client.senha_prefeitura || '---'} isPassword />
+               <DataField label="Senha SEFAZ" value={client.senha_sefaz || '---'} isPassword />
+               <DataField label="Código do Simples" value={client.codigo_simples || '---'} isPassword />
             </div>
           </div>
         ) : (
@@ -286,7 +299,6 @@ function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
             </div>
             
             <div className="overflow-x-auto border border-slate-300">
-              {/* TABELA LUCRO PRESUMIDO COM GRADE */}
               {client.regime === 'Lucro Presumido' && (
                 <table className="w-full text-[10px] font-medium border-collapse">
                   <thead className="bg-[#1e293b] text-white">
@@ -333,7 +345,6 @@ function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
                 </table>
               )}
 
-              {/* TABELA SIMPLES NACIONAL COM GRADE */}
               {client.regime === 'Simples Nacional' && (
                 <table className="w-full text-[10px] font-medium border-collapse">
                   <thead className="bg-[#1e293b] text-white">
@@ -353,8 +364,8 @@ function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
                       <tr key={r.mes} className="hover:bg-slate-50">
                         <td className="border border-slate-300 p-1 font-bold bg-slate-100 text-center">{r.mes}</td>
                         <td className="border border-slate-300 p-0"><input value={r.rbt12} onChange={e=>handleChange(idx,'rbt12',e.target.value)} className="w-full text-center p-1 outline-none" /></td>
-                        <td className="border border-slate-300 p-0"><input value={r.aliq_venda} onChange={e=>handleChange(idx,'aliq_venda',e.target.value)} className="w-full text-center p-1 outline-none" placeholder="0.00%" /></td>
-                        <td className="border border-slate-300 p-0"><input value={r.aliq_servico} onChange={e=>handleChange(idx,'aliq_servico',e.target.value)} className="w-full text-center p-1 outline-none" placeholder="0.00%" /></td>
+                        <td className="border border-slate-300 p-0"><input value={r.aliq_venda} onChange={e=>handleChange(idx,'aliq_venda',e.target.value)} className="w-full text-center p-1 outline-none" /></td>
+                        <td className="border border-slate-300 p-0"><input value={r.aliq_servico} onChange={e=>handleChange(idx,'aliq_servico',e.target.value)} className="w-full text-center p-1 outline-none" /></td>
                         <td className="border border-slate-300 p-0"><input value={r.vendas} onChange={e=>handleChange(idx,'vendas',e.target.value)} className="w-full text-center p-1 outline-none text-blue-700 font-bold" /></td>
                         <td className="border border-slate-300 p-0"><input value={r.servicos} onChange={e=>handleChange(idx,'servicos',e.target.value)} className="w-full text-center p-1 outline-none text-blue-700 font-bold" /></td>
                         <td className="border border-slate-300 p-0"><input value={r.das} onChange={e=>handleChange(idx,'das',e.target.value)} className="w-full text-center p-1 outline-none font-bold text-red-600 bg-red-50/30" /></td>
@@ -364,6 +375,7 @@ function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
                   </tbody>
                 </table>
               )}
+              {/* O MEI pode usar uma grade parecida, deixei oculto aqui se for apenas monitoramento */}
             </div>
           </div>
         )}
@@ -371,6 +383,9 @@ function ClientDetailsTabs({ client, lancamentos, supabase, onRefresh }) {
     </div>
   );
 }
+
+// --- SUBCOMPONENTES ---
+const RegimeView = ({ regime, limit, clients, lancamentos }) => (<div className="p-10 text-slate-400 text-center text-xl font-bold">Painel de Monitoramento: {regime} Ativo</div>);
 
 const NavItem = ({ name, icon: Icon, active, onClick }) => (
   <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${active ? 'bg-orange-500/10 text-orange-500 font-bold' : 'text-slate-400 hover:bg-slate-800'}`}><Icon size={18} /><span>{name}</span></button>
@@ -389,6 +404,12 @@ const KPICard = ({ title, value, sub }) => (
 );
 const TabButton = ({ active, icon: Icon, label, onClick }) => (
   <button onClick={onClick} className={`px-8 py-4 text-xs font-bold flex items-center gap-2 transition-all ${active ? 'bg-white text-orange-500 border-b-2 border-orange-500' : 'text-slate-400 hover:text-slate-600'}`}><Icon size={16}/> {label}</button>
+);
+const DataField = ({ label, value, isPassword }) => (
+  <div>
+    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{label}</label>
+    <p className={`text-sm font-bold ${isPassword ? 'text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded inline-block' : 'text-slate-800'}`}>{value}</p>
+  </div>
 );
 
 createRoot(document.getElementById('root')).render(<App />);
