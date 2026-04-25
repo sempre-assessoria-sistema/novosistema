@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 
-// Configuração do Supabase usando as chaves do seu arquivo .env
+// Configuração do Supabase usando as chaves
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -60,7 +60,7 @@ export default function App() {
   const [mensagem, setMensagem] = useState("Carregando banco...");
   const fileRef = useRef(null);
 
-  // Busca os dados no Supabase toda vez que a página carrega (ou dá F5)
+  // Busca os dados no Supabase toda vez que a página carrega
   useEffect(() => {
     carregarBanco();
   }, []);
@@ -76,7 +76,7 @@ export default function App() {
       .select("*");
 
     if (erroClientes || erroLanc) {
-      setMensagem("Erro de conexão. Verifique seu arquivo .env");
+      setMensagem("Erro de conexão com o banco de dados.");
       return;
     }
 
@@ -110,7 +110,7 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setMensagem("Processando planilha...");
+    setMensagem("Processando planilha e salvando na nuvem...");
 
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer);
@@ -173,7 +173,7 @@ export default function App() {
     // Atualiza a tela
     setClientes(clientesImportados);
     setLancamentos(lancamentosImportados);
-    setMensagem("Importação concluída e salva com sucesso!");
+    setMensagem("Importação concluída! Seus dados estão salvos na nuvem.");
     e.target.value = "";
   }
 
@@ -228,7 +228,7 @@ export default function App() {
       <main style={{ flex: 1, padding: 30, background: "#f4f6f9" }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <h1>Dashboard</h1>
-          <button onClick={() => fileRef.current.click()} style={{ padding: "10px 20px", background: "#4e73df", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer" }}>
+          <button onClick={() => fileRef.current.click()} style={{ padding: "10px 20px", background: "#4e73df", color: "#fff", border: "none", borderRadius: 5, cursor: "pointer", fontWeight: "bold" }}>
             Importar Excel
           </button>
         </div>
@@ -236,24 +236,24 @@ export default function App() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginTop: 25 }}>
           <div style={card}>
-            <small>Empresas</small>
+            <small>Empresas Cadastradas</small>
             <h2>{(clientes || []).length}</h2>
           </div>
           <div style={card}>
-            <small>Faturamento Total</small>
+            <small>Faturamento Acumulado</small>
             <h2>{moeda(totais.faturamento)}</h2>
           </div>
           <div style={card}>
-            <small>Impostos (DAS)</small>
+            <small>Total DAS / Tributos</small>
             <h2>{moeda(totais.tributos)}</h2>
           </div>
           <div style={card}>
-            <small>Pendências</small>
+            <small>Lançamentos Pendentes</small>
             <h2>{totais.pendentes}</h2>
           </div>
         </div>
 
-        <h2 style={{ marginTop: 40 }}>Lista de Clientes</h2>
+        <h2 style={{ marginTop: 40 }}>Lista Geral de Clientes</h2>
         <table width="100%" cellPadding="12" style={{ background: "#fff", borderRadius: 10, borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid #eee" }}>
@@ -270,7 +270,7 @@ export default function App() {
                 <td>{c.regime}</td>
                 <td align="right">{moeda(c.faturamento)}</td>
                 <td align="center">
-                  <span style={{ padding: "4px 8px", borderRadius: 4, background: c.status === "Concluído" ? "#e1f7ec" : "#ffe8e8", color: c.status === "Concluído" ? "#008a4e" : "#d92d20" }}>
+                  <span style={{ padding: "4px 8px", borderRadius: 4, background: c.status === "Concluído" ? "#e1f7ec" : "#ffe8e8", color: c.status === "Concluído" ? "#008a4e" : "#d92d20", fontSize: "12px", fontWeight: "bold" }}>
                     {c.status}
                   </span>
                 </td>
